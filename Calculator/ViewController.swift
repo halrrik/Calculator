@@ -70,6 +70,7 @@ class ViewController: UIViewController {
     @IBAction func clearAll() {
         displayValue = nil
         displayHistory.text!.removeAll()
+        brain = CalculatorBrain()
     }
 
     @IBAction func backspace() {
