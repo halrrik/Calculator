@@ -18,34 +18,39 @@ class ViewController: UIViewController {
     
     var displayValue: Double? {
         get {
-            if let nsNumber = NSNumberFormatter().numberFromString(display.text!) {
-                return nsNumber.doubleValue
-            } else {
-                display.text = "0"
-                return nil
+            if let displayText = display.text {
+                return NSNumberFormatter().numberFromString(displayText)?.doubleValue
             }
+            return nil
         }
         set {
-            if newValue == nil {
-                display.text = "0"
-            } else {
-                let numberFormatter = NSNumberFormatter()
-                numberFormatter.numberStyle = NSNumberFormatterStyle.DecimalStyle
-                numberFormatter.usesGroupingSeparator = false
-                if let stringFromNewValue = numberFormatter.stringFromNumber(NSNumber(double: newValue!)) {
-                    display.text = stringFromNewValue
-                } else {
-                    display.text = "0"
-                }
-            }
             userIsInTheMiddleOfTypingANumber = false
+            displayHistory.text = brain.description
+            guard let newNoNilValue = newValue else {
+                display.text = "0"
+                return
+            }
+            let numberFormatter = NSNumberFormatter()
+            numberFormatter.numberStyle = NSNumberFormatterStyle.DecimalStyle
+            numberFormatter.usesGroupingSeparator = false
+            if let stringFromNewNoNilValue = numberFormatter.stringFromNumber(NSNumber(double: newNoNilValue)) {
+                display.text = stringFromNewNoNilValue
+            } else {
+                display.text = "0"
+            }
         }
     }
     
     @IBAction func appenDigit(sender: UIButton) {
-        let digit = sender.currentTitle!
+        guard let digit = sender.currentTitle else {
+            return
+        }
+        guard let displayText = display.text else {
+            return
+        }
+        
         if userIsInTheMiddleOfTypingANumber {
-            display.text = display.text! + digit
+            display.text = displayText + digit
         } else {
             userIsInTheMiddleOfTypingANumber = true
             display.text = digit
@@ -54,29 +59,34 @@ class ViewController: UIViewController {
     }
     
     @IBAction func appendDot() {
-        if display.text!.rangeOfString(".") == nil {
-            display.text!.append(Character("."))
-            userIsInTheMiddleOfTypingANumber = true
+        if let displayText = display.text {
+            if displayText.rangeOfString(".") == nil {
+                display.text?.append(Character("."))
+                userIsInTheMiddleOfTypingANumber = true
+            }
         }
     }
+    
     @IBAction func enter() {
-        if displayValue != nil {
+        if let currentDisplayValue = displayValue {
             userIsInTheMiddleOfTypingANumber = false
-            displayValue = brain.pushOperand(displayValue!)
-            addToHistory(display.text!)
+            displayValue = brain.pushOperand(currentDisplayValue)
         }
     }
     
     @IBAction func clearAll() {
+        brain.clearAll()
         displayValue = nil
-        displayHistory.text!.removeAll()
-        brain = CalculatorBrain()
     }
 
     @IBAction func backspace() {
-        if display.text!.characters.count > 1 {
-            let endIndex = display.text!.endIndex.predecessor()
-            display.text!.removeAtIndex(endIndex)
+        guard let displayText = display.text else {
+            return
+        }
+
+        if displayText.characters.count > 1 {
+            let index = displayText.endIndex.predecessor()
+            display.text?.removeAtIndex(index)
         }
         else {
             displayValue = nil
@@ -85,12 +95,15 @@ class ViewController: UIViewController {
     }
 
     @IBAction func changeSign(sender: UIButton) {
+        guard let displayText = display.text else {
+            return
+        }
         if userIsInTheMiddleOfTypingANumber {
-            if display.text!.rangeOfString("-") != nil {
-                let startIndex = display.text!.startIndex
-                display.text!.removeAtIndex(startIndex)
+            if displayText.rangeOfString("-") != nil {
+                let index = displayText.startIndex
+                display.text?.removeAtIndex(index)
             } else {
-                display.text = "-" + display.text!
+                display.text = "-" + displayText
             }
         } else {
             operate(sender)
@@ -102,20 +115,34 @@ class ViewController: UIViewController {
             enter()
         }
         if let operation = sender.currentTitle {
-            displayValue = brain.performOperation(operation)
-            addToHistory(operation)
-            addToHistory("=")
+            if let result = brain.performOperation(operation) {
+                displayValue = result
+                if let displayHistoryText = displayHistory.text {
+                    displayHistory.text = displayHistoryText + "="
+                }
+            } else {
+                displayValue = nil
+            }
         }
     }
-
     
-    func addToHistory(text: String){
-        if let indexRange = displayHistory.text!.rangeOfString("=") {
-            print(displayHistory.text![indexRange.startIndex])
-            displayHistory.text!.removeAtIndex(indexRange.startIndex)
+    @IBAction func pushVariable(sender: UIButton) {
+        if let variableName = sender.currentTitle {
+            brain.pushOperand(variableName)
         }
-        displayHistory.text = displayHistory.text! + text + " "
     }
-
+    
+    @IBAction func setVariable(sender: UIButton) {
+        userIsInTheMiddleOfTypingANumber = false
+        guard let valueOfVariable = displayValue else {
+            return
+        }
+        guard let currentTitle = sender.currentTitle else {
+            return
+        }
+        let variableName = String(currentTitle.characters.dropFirst())
+        brain.variableValues[variableName] = valueOfVariable
+        displayValue = brain.evaluate()
+    }
 }
 
